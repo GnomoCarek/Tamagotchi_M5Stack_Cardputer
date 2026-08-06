@@ -1,1 +1,1 @@
-# Tamagotchi-_M5Stack_Cardputer
+# Tamagotchi_M5Stack_Cardputer
