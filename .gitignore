@@ -1,0 +1,21 @@
+# PlatformIO
+.pio
+.piobuild
+.pioenvs
+
+# VS Code / IDEs
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosv
+*.sln.docstates
+
+# System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# C++ Build Output
+*.o
+*.elf
