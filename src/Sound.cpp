@@ -106,6 +106,38 @@ void Sound::playSound(SoundType type) {
             delay(90);
             M5.Speaker.tone(1600, 80);
             break;
+
+        case SOUND_EGG_HATCH:
+            M5.Speaker.tone(440, 80);
+            delay(90);
+            M5.Speaker.tone(554, 80);
+            delay(90);
+            M5.Speaker.tone(659, 80);
+            delay(90);
+            M5.Speaker.tone(880, 200);
+            break;
+
+        case SOUND_SCREEN_SLEEP:
+            M5.Speaker.tone(600, 50);
+            delay(60);
+            M5.Speaker.tone(300, 80);
+            break;
+
+        case SOUND_SCREEN_WAKE:
+            M5.Speaker.tone(400, 50);
+            delay(60);
+            M5.Speaker.tone(800, 80);
+            break;
+
+        case SOUND_LOW_BATTERY:
+            M5.Speaker.tone(300, 150);
+            delay(180);
+            M5.Speaker.tone(200, 250);
+            break;
+
+        case SOUND_TYPING:
+            M5.Speaker.tone(1400, 20);
+            break;
     }
 }
 

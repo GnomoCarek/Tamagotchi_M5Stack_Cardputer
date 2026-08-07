@@ -78,6 +78,7 @@ enum PetVariant {
 // Estados do Jogo (State Machine)
 enum GameState {
     STATE_TITLE = 0,
+    STATE_NAME_ENTRY,
     STATE_GAMEPLAY,
     STATE_MENU,
     STATE_SHOP,
@@ -103,8 +104,14 @@ enum SoundType {
     SOUND_BOOT,
     SOUND_COIN,
     SOUND_ACHIEVEMENT,
-    SOUND_CLEAN
+    SOUND_CLEAN,
+    SOUND_EGG_HATCH,
+    SOUND_SCREEN_SLEEP,
+    SOUND_SCREEN_WAKE,
+    SOUND_LOW_BATTERY,
+    SOUND_TYPING
 };
+
 
 // Idiomas (Suporte extensível, padrão PT-BR)
 enum Language {

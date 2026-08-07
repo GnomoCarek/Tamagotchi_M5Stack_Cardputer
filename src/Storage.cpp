@@ -33,15 +33,19 @@ bool StorageManager::saveGame(const Pet& pet, ItemsManager& items, AchievementsM
     prefs.putInt("pet_energy", pet.energy);
     prefs.putInt("pet_health", pet.health);
     prefs.putInt("pet_weight", pet.weight);
+    prefs.putInt("pet_affect", pet.affection);
     prefs.putInt("pet_age", pet.ageDays);
     prefs.putInt("pet_coins", pet.coins);
 
     prefs.putBool("pet_sleep", pet.isSleeping);
     prefs.putBool("pet_sick", pet.isSick);
     prefs.putBool("pet_dead", pet.isDead);
+    prefs.putBool("pet_dirty", pet.isDirty);
     prefs.putInt("pet_poop", pet.poopCount);
 
     prefs.putUInt("pet_time", pet.totalTimeSeconds);
+    prefs.putUInt("pet_last_bath", pet.lastBathTimeSeconds);
+    prefs.putFloat("pet_sick_dur", pet.sickDurationSeconds);
     prefs.putInt("pet_meals", pet.mealsEaten);
     prefs.putInt("pet_baths", pet.bathsTaken);
     prefs.putInt("pet_games", pet.gamesPlayed);
@@ -63,9 +67,10 @@ bool StorageManager::saveGame(const Pet& pet, ItemsManager& items, AchievementsM
     prefs.putBool("bgm_on", sound.isBgmEnabled());
     prefs.putFloat("time_spd", timeSpeed);
     prefs.putInt("scr_bright", brightness);
+    prefs.putInt("scr_timeout", pet.screenTimeoutSec);
 
-    // Timestamp
-    uint32_t currentSecs = (uint32_t)(millis() / 1000);
+    // Timestamp (epoch time via time(nullptr))
+    uint32_t currentSecs = (uint32_t)time(nullptr);
     prefs.putUInt("last_ts", currentSecs);
 
     return true;
@@ -86,15 +91,19 @@ bool StorageManager::loadGame(Pet& pet, ItemsManager& items, AchievementsManager
     pet.energy = prefs.getInt("pet_energy", DEFAULT_ENERGY);
     pet.health = prefs.getInt("pet_health", DEFAULT_HEALTH);
     pet.weight = prefs.getInt("pet_weight", DEFAULT_WEIGHT);
+    pet.affection = prefs.getInt("pet_affect", 80);
     pet.ageDays = prefs.getInt("pet_age", 0);
     pet.coins = prefs.getInt("pet_coins", 50);
 
     pet.isSleeping = prefs.getBool("pet_sleep", false);
     pet.isSick = prefs.getBool("pet_sick", false);
     pet.isDead = prefs.getBool("pet_dead", false);
+    pet.isDirty = prefs.getBool("pet_dirty", false);
     pet.poopCount = prefs.getInt("pet_poop", 0);
 
     pet.totalTimeSeconds = prefs.getUInt("pet_time", 0);
+    pet.lastBathTimeSeconds = prefs.getUInt("pet_last_bath", 0);
+    pet.sickDurationSeconds = prefs.getFloat("pet_sick_dur", 0.0f);
     pet.mealsEaten = prefs.getInt("pet_meals", 0);
     pet.bathsTaken = prefs.getInt("pet_baths", 0);
     pet.gamesPlayed = prefs.getInt("pet_games", 0);
@@ -118,11 +127,12 @@ bool StorageManager::loadGame(Pet& pet, ItemsManager& items, AchievementsManager
     sound.setBgmEnabled(prefs.getBool("bgm_on", false));
     timeSpeed = prefs.getFloat("time_spd", 1.0f);
     brightness = prefs.getInt("scr_bright", 128);
+    pet.screenTimeoutSec = prefs.getInt("scr_timeout", 60);
 
     // Tempo Offline
     uint32_t lastTS = prefs.getUInt("last_ts", 0);
-    uint32_t currentSecs = (uint32_t)(millis() / 1000);
-    if (currentSecs > lastTS && lastTS > 0) {
+    uint32_t currentSecs = (uint32_t)time(nullptr);
+    if (currentSecs > lastTS && lastTS > 100000) {
         outOfflineSeconds = currentSecs - lastTS;
     } else {
         outOfflineSeconds = 0;

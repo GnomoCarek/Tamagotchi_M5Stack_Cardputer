@@ -39,6 +39,12 @@ private:
     uint32_t lastFrameTime;
     float autoSaveTimer;
 
+    char nameInput[16];
+    int nameLen;
+
+    float screenIdleTimer;
+    bool isScreenOff;
+
 public:
     Game();
 

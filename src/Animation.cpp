@@ -217,12 +217,12 @@ void Animation::drawIcon(M5Canvas& canvas, int x, int y, int iconIndex, uint16_t
     canvas.drawRect(x, y, 14, 14, color);
 
     switch (iconIndex) {
-        case 0: // 🍖 Comida
+        case 0: // 🍖 Alimentar
             canvas.fillCircle(x + 5, y + 5, 3, COLOR_HUNGER);
             canvas.fillCircle(x + 9, y + 9, 3, COLOR_HUNGER);
             canvas.drawLine(x + 3, y + 11, x + 11, y + 3, TFT_WHITE);
             break;
-        case 1: // 🎮 Jogar
+        case 1: // 🎮 Brincar
             canvas.fillRect(x + 2, y + 4, 10, 6, COLOR_HAPPY);
             canvas.drawFastVLine(x + 4, y + 5, 4, TFT_BLACK);
             canvas.drawFastHLine(x + 3, y + 6, 4, TFT_BLACK);
@@ -243,31 +243,40 @@ void Animation::drawIcon(M5Canvas& canvas, int x, int y, int iconIndex, uint16_t
             canvas.fillCircle(x + 5, y + 4, 2, TFT_WHITE);
             canvas.fillCircle(x + 9, y + 5, 2, TFT_WHITE);
             break;
-        case 5: // ❤️ Carinho
+        case 5: // 🧹 Limpar Cocô
+            canvas.drawLine(x + 3, y + 3, x + 8, y + 8, 0x8A00);
+            canvas.fillTriangle(x + 7, y + 7, x + 12, y + 10, x + 10, y + 12, TFT_YELLOW);
+            break;
+        case 6: // ❤️ Carinho
             canvas.fillCircle(x + 4, y + 5, 2, COLOR_HEALTH);
             canvas.fillCircle(x + 9, y + 5, 2, COLOR_HEALTH);
             canvas.fillTriangle(x + 2, y + 6, x + 11, y + 6, x + 7, y + 11, COLOR_HEALTH);
             break;
-        case 6: // 📊 Status
+        case 7: // 📊 Status
             canvas.fillRect(x + 3, y + 8, 2, 4, TFT_GREEN);
             canvas.fillRect(x + 6, y + 5, 2, 7, TFT_YELLOW);
             canvas.fillRect(x + 9, y + 2, 2, 10, TFT_RED);
             break;
-        case 7: // 🏪 Loja
+        case 8: // 🏪 Loja
             canvas.fillTriangle(x + 2, y + 5, x + 12, y + 5, x + 7, y + 2, COLOR_COIN);
             canvas.fillRect(x + 3, y + 6, 8, 6, TFT_LIGHTGRAY);
             canvas.fillRect(x + 6, y + 8, 2, 4, TFT_BLACK);
             break;
-        case 8: // 🎒 Inventário
+        case 9: // 🎒 Inventário
             canvas.fillRoundRect(x + 3, y + 4, 8, 8, 2, 0x9360);
             canvas.drawFastHLine(x + 5, y + 2, 4, TFT_WHITE);
             break;
-        case 9: // 💾 Salvar
+        case 10: // 🏆 Conquistas
+            canvas.fillTriangle(x + 3, y + 3, x + 11, y + 3, x + 7, y + 9, COLOR_COIN);
+            canvas.fillRect(x + 6, y + 9, 2, 3, COLOR_COIN);
+            canvas.drawFastHLine(x + 4, y + 12, 6, COLOR_COIN);
+            break;
+        case 11: // 💾 Salvar
             canvas.fillRect(x + 3, y + 3, 8, 8, TFT_BLUE);
             canvas.fillRect(x + 5, y + 3, 4, 3, TFT_WHITE);
             canvas.fillRect(x + 5, y + 8, 4, 3, TFT_YELLOW);
             break;
-        case 10: // ⚙️ Config
+        case 12: // ⚙️ Config
             canvas.drawCircle(x + 7, y + 7, 3, TFT_LIGHTGRAY);
             canvas.drawPixel(x + 7, y + 3, TFT_LIGHTGRAY);
             canvas.drawPixel(x + 7, y + 11, TFT_LIGHTGRAY);
@@ -299,24 +308,76 @@ void Animation::drawBomb(M5Canvas& canvas, int x, int y) {
 }
 
 void Animation::drawFood(M5Canvas& canvas, int x, int y, int foodType) {
+    canvas.fillRect(x, y, 16, 16, COLOR_PANEL_BG);
+
     switch (foodType) {
-        case 0: // Maçã
-            canvas.fillCircle(x + 6, y + 7, 5, TFT_RED);
-            canvas.drawPixel(x + 6, y + 1, TFT_GREEN);
+        case 0: // 🍎 Maçã
+            canvas.fillCircle(x + 8, y + 9, 6, TFT_RED);
+            canvas.drawPixel(x + 8, y + 2, 0x03E0);
+            canvas.drawPixel(x + 9, y + 3, 0x03E0);
+            canvas.drawPixel(x + 7, y + 3, 0x8200);
             break;
-        case 1: // Hambúrguer
-            canvas.fillRoundRect(x + 2, y + 2, 9, 3, 1, 0xFD20); // Pão cima
-            canvas.drawFastHLine(x + 2, y + 6, 9, TFT_GREEN); // Alface
-            canvas.drawFastHLine(x + 2, y + 7, 9, 0x8A00); // Carne
-            canvas.fillRoundRect(x + 2, y + 8, 9, 3, 1, 0xFD20); // Pão baixo
+        case 1: // 🍖 Hambúrguer
+            canvas.fillRoundRect(x + 3, y + 3, 10, 3, 1, 0xFD20); // Pão cima
+            canvas.drawFastHLine(x + 3, y + 7, 10, TFT_GREEN); // Alface
+            canvas.drawFastHLine(x + 3, y + 8, 10, 0x8A00); // Carne
+            canvas.fillRoundRect(x + 3, y + 9, 10, 3, 1, 0xFD20); // Pão baixo
             break;
-        case 2: // Bolo
-            canvas.fillRect(x + 3, y + 5, 7, 6, TFT_PINK);
-            canvas.drawFastHLine(x + 3, y + 5, 7, TFT_WHITE);
-            canvas.fillCircle(x + 6, y + 3, 2, TFT_RED);
+        case 2: // 🍰 Bolo
+            canvas.fillRect(x + 3, y + 6, 10, 7, 0xFC18); // Bolo
+            canvas.drawFastHLine(x + 3, y + 6, 10, TFT_WHITE); // Cobertura
+            canvas.fillCircle(x + 8, y + 4, 2, TFT_RED); // Cereja
+            break;
+        case 3: // 🥗 Salada
+            canvas.fillRoundRect(x + 2, y + 8, 12, 5, 2, TFT_WHITE); // Tigela
+            canvas.fillCircle(x + 6, y + 6, 3, TFT_GREEN);
+            canvas.fillCircle(x + 10, y + 6, 3, TFT_RED);
+            break;
+        case 4: // 💊 Vitamina (Cápusla)
+            canvas.fillRoundRect(x + 4, y + 3, 8, 10, 4, TFT_RED);
+            canvas.fillRect(x + 4, y + 8, 8, 5, TFT_WHITE);
+            canvas.drawRoundRect(x + 4, y + 3, 8, 10, 4, TFT_BLACK);
+            break;
+        case 5: // 🩹 Xarope
+            canvas.fillRect(x + 5, y + 3, 6, 10, 0x07FF); // Frasco
+            canvas.fillRect(x + 6, y + 1, 4, 2, TFT_WHITE); // Tampa
+            canvas.drawFastHLine(x + 6, y + 7, 4, TFT_RED);
+            canvas.drawFastVLine(x + 7, y + 6, 3, TFT_RED);
+            break;
+        case 6: // 💉 Injeção
+            canvas.drawLine(x + 2, y + 13, x + 6, y + 9, TFT_LIGHTGRAY); // Agulha
+            canvas.fillRect(x + 6, y + 5, 6, 5, TFT_WHITE); // Seringa
+            canvas.drawRect(x + 6, y + 5, 6, 5, TFT_BLACK);
+            canvas.drawLine(x + 11, y + 4, x + 14, y + 1, TFT_BLACK); // Êmbolo
+            break;
+        case 7: // ⚽ Bola
+            canvas.fillCircle(x + 8, y + 8, 6, TFT_WHITE);
+            canvas.drawCircle(x + 8, y + 8, 6, TFT_BLACK);
+            canvas.fillRect(x + 7, y + 7, 3, 3, TFT_BLACK);
+            break;
+        case 8: // 🎮 GameBoy
+            canvas.fillRoundRect(x + 4, y + 2, 8, 12, 2, TFT_LIGHTGRAY);
+            canvas.fillRect(x + 6, y + 4, 4, 3, TFT_BLACK); // Tela
+            canvas.drawPixel(x + 6, y + 9, TFT_DARKGRAY); // D-Pad
+            canvas.drawPixel(x + 9, y + 10, TFT_RED); // Botão A
+            break;
+        case 9: // 🧽 Planta
+            canvas.fillTriangle(x + 4, y + 13, x + 12, y + 13, x + 8, y + 8, 0x8A00); // Vaso
+            canvas.fillCircle(x + 6, y + 6, 3, TFT_GREEN); // Folha esq
+            canvas.fillCircle(x + 10, y + 5, 3, TFT_GREEN); // Folha dir
+            break;
+        case 10: // 🪣 Tapete
+            canvas.fillRoundRect(x + 2, y + 5, 12, 7, 2, 0x3E1F);
+            canvas.drawRoundRect(x + 2, y + 5, 12, 7, 2, COLOR_COIN);
+            break;
+        case 11: // 🛏 Quadro
+            canvas.drawRect(x + 3, y + 3, 10, 10, COLOR_COIN);
+            canvas.fillRect(x + 4, y + 4, 8, 8, COLOR_BG_DAY);
+            canvas.fillTriangle(x + 5, y + 10, x + 11, y + 10, x + 8, y + 6, TFT_GREEN); // Montanha
             break;
         default:
-            canvas.fillCircle(x + 6, y + 6, 4, COLOR_HUNGER);
+            canvas.fillCircle(x + 8, y + 8, 5, COLOR_HUNGER);
             break;
     }
 }
+

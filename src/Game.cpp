@@ -7,6 +7,11 @@ Game::Game() {
     brightness = 128;
     lastFrameTime = 0;
     autoSaveTimer = 0;
+
+    nameInput[0] = '\0';
+    nameLen = 0;
+    screenIdleTimer = 0;
+    isScreenOff = false;
 }
 
 void Game::begin() {
@@ -52,6 +57,35 @@ void Game::update() {
     // Atualizar Entrada
     input.update();
     KeyAction action = input.getAction();
+    char typedC = input.getTypedChar();
+    bool anyInput = (action != ACTION_NONE || typedC != '\0');
+
+    // Gerenciamento de Timeout da Tela (Sleep / Wake)
+    if (anyInput) {
+        screenIdleTimer = 0;
+        if (isScreenOff) {
+            isScreenOff = false;
+            M5Cardputer.Display.setBrightness(brightness);
+            sound.playSound(SOUND_SCREEN_WAKE);
+            return; // Descarta o toque inicial que religou a tela
+        }
+    } else {
+        screenIdleTimer += dt;
+        if (pet.screenTimeoutSec > 0 && screenIdleTimer >= (float)pet.screenTimeoutSec && !isScreenOff) {
+            isScreenOff = true;
+            M5Cardputer.Display.setBrightness(0);
+            sound.playSound(SOUND_SCREEN_SLEEP);
+        }
+    }
+
+    // Se a tela estiver desligada, mantém a simulação sem renderizar
+    if (isScreenOff) {
+        pet.update(dt);
+        clock.setTimeSpeed(timeSpeed);
+        clock.update(dt);
+        sound.update(dt);
+        return;
+    }
 
     // Atualizar Som & Relógio
     sound.update(dt);
@@ -71,8 +105,44 @@ void Game::update() {
         case STATE_TITLE:
             renderer.renderTitleScreen(animation);
             if (action == ACTION_SELECT) {
-                currentState = STATE_GAMEPLAY;
                 sound.playSound(SOUND_CLICK);
+                if (storage.hasSaveData()) {
+                    currentState = STATE_GAMEPLAY;
+                } else {
+                    nameInput[0] = '\0';
+                    nameLen = 0;
+                    currentState = STATE_NAME_ENTRY;
+                }
+            }
+            break;
+
+        case STATE_NAME_ENTRY:
+            // Digitação do Nome
+            if (typedC == '\b' || action == ACTION_DELETE) {
+                if (nameLen > 0) {
+                    nameLen--;
+                    nameInput[nameLen] = '\0';
+                    sound.playSound(SOUND_CLICK);
+                }
+            } else if (typedC >= ' ' && typedC <= '~' && nameLen < 12) {
+                nameInput[nameLen] = typedC;
+                nameLen++;
+                nameInput[nameLen] = '\0';
+                sound.playSound(SOUND_TYPING);
+            }
+
+            renderer.renderNameEntryScreen(nameInput, animation);
+
+            if (action == ACTION_SELECT) {
+                if (nameLen >= 3) {
+                    pet.reset(nameInput);
+                    lastStage = pet.stage;
+                    saveGame();
+                    currentState = STATE_GAMEPLAY;
+                    sound.playSound(SOUND_EGG_HATCH);
+                } else {
+                    events.showMessage("Nome deve ter 3-12 letras!", 2.5f);
+                }
             }
             break;
 
@@ -103,13 +173,15 @@ void Game::update() {
                 if (action == ACTION_SELECT) {
                     currentState = STATE_MENU;
                     sound.playSound(SOUND_CLICK);
-                } else if (action == ACTION_NUM1) { // Atalho Carinho
+                } else if (action == ACTION_NUM1 || action == ACTION_SPACE) { // Atalho Carinho
                     if (pet.petCare()) {
                         sound.playSound(SOUND_PLAY);
                         animation.spawnParticle(SCREEN_WIDTH / 2, 60, PARTICLE_HEART, COLOR_HEALTH);
                     }
                 } else if (action == ACTION_NUM2) { // Atalho Limpar
                     if (pet.cleanPoop()) sound.playSound(SOUND_CLEAN);
+                } else if (action == ACTION_NUM3) { // Atalho Banho
+                    if (pet.giveBath()) sound.playSound(SOUND_CLEAN);
                 }
             } else if (currentState == STATE_MENU) {
                 bool requestSave = false;
@@ -159,7 +231,9 @@ void Game::update() {
             renderer.renderGameOverScreen(pet, animation);
             if (action == ACTION_SELECT) {
                 resetGame();
-                currentState = STATE_TITLE;
+                nameInput[0] = '\0';
+                nameLen = 0;
+                currentState = STATE_NAME_ENTRY;
                 sound.playSound(SOUND_CLICK);
             }
             break;
@@ -182,3 +256,4 @@ void Game::resetGame() {
     minigame.reset();
     lastStage = pet.stage;
 }
+

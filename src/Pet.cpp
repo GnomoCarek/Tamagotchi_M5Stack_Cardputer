@@ -16,15 +16,19 @@ void Pet::reset(const char* petName, PetVariant petVar) {
     energy = DEFAULT_ENERGY;
     health = DEFAULT_HEALTH;
     weight = DEFAULT_WEIGHT;
+    affection = 80;
     ageDays = 0;
     coins = 50;
 
     isSleeping = false;
     isSick = false;
     isDead = false;
+    isDirty = false;
     poopCount = 0;
 
     totalTimeSeconds = 0;
+    lastBathTimeSeconds = 0;
+    sickDurationSeconds = 0;
     mealsEaten = 0;
     bathsTaken = 0;
     gamesPlayed = 0;
@@ -32,18 +36,27 @@ void Pet::reset(const char* petName, PetVariant petVar) {
     hoursSlept = 0;
     careMistakes = 0;
 
+    timeAccumulator = 0;
     hungerTimer = 0;
     happinessTimer = 0;
     energyTimer = 0;
     healthTimer = 0;
     poopTimer = 0;
+    affectionTimer = 0;
+
+    screenTimeoutSec = 60; // 60 segundos por padrão
 }
 
 void Pet::update(float dt) {
     if (isDead) return;
 
-    totalTimeSeconds += (uint32_t)dt;
-    ageDays = totalTimeSeconds / 86400; // 1 dia = 86400 s (ou tempo reduzido para gameplay)
+    // Acumula tempo em float para evitar perda por truncamento
+    timeAccumulator += dt;
+    while (timeAccumulator >= 1.0f) {
+        timeAccumulator -= 1.0f;
+        totalTimeSeconds++;
+    }
+    ageDays = totalTimeSeconds / 86400; // 1 dia = 86400 segundos
 
     // Fatores de personalidade
     float hungerMult = 1.0f;
@@ -60,8 +73,8 @@ void Pet::update(float dt) {
     }
 
     if (stage == STAGE_EGG) {
-        // Ovo choca após 30 segundos
-        if (totalTimeSeconds > 30) {
+        // Ovo choca quando totalTimeSeconds atingir 30 segundos
+        if (totalTimeSeconds >= 30) {
             stage = STAGE_BABY;
         }
         return;
@@ -97,20 +110,34 @@ void Pet::update(float dt) {
     happinessTimer += dt;
     if (happinessTimer >= (20.0f / happyMult)) {
         happinessTimer = 0;
-        if (hunger < 30 || poopCount > 0 || isSick) {
+        if (hunger < 30 || poopCount > 0 || isSick || isDirty || affection < 20) {
             happiness = max(STAT_MIN, happiness - 2);
         } else if (!isSleeping) {
             happiness = max(STAT_MIN, happiness - 1);
         }
     }
 
-    // Geração de Cocô (a cada 90s se acordado e alimentado)
-    if (!isSleeping) {
+    // Decaimento de Carinho (Affection)
+    affectionTimer += dt;
+    if (affectionTimer >= 25.0f) {
+        affectionTimer = 0;
+        if (!isSleeping) {
+            affection = max(STAT_MIN, affection - 1);
+        }
+    }
+
+    // Geração de Cocô (a cada 180s de gameplay se acordado e alimentado)
+    if (!isSleeping && hunger > 0) {
         poopTimer += dt;
-        if (poopTimer >= 90.0f) {
+        if (poopTimer >= 180.0f) {
             poopTimer = 0;
             triggerPoop();
         }
+    }
+
+    // Checagem de Banho (Fica sujo se > 300s sem banho no gameplay ou 24h real)
+    if (totalTimeSeconds - lastBathTimeSeconds >= 300 && !isDirty) {
+        isDirty = true;
     }
 
     // Saúde e Doenças
@@ -121,6 +148,7 @@ void Pet::update(float dt) {
         if (hunger == 0) healthLoss += 2;
         if (energy == 0) healthLoss += 2;
         if (poopCount > 0) healthLoss += poopCount;
+        if (isDirty) healthLoss += 1;
         if (isSick) healthLoss += 3;
 
         if (healthLoss > 0) {
@@ -129,10 +157,20 @@ void Pet::update(float dt) {
         }
     }
 
-    // Chance aleatória de ficar doente se o ambiente estiver sujo
+    // Chance aleatória de ficar doente se o ambiente estiver sujo ou com 4 cocôs
     checkSickness();
 
-    // Morte
+    // Acúmulo de tempo de doença (Morre após 24h acumuladas doente)
+    if (isSick) {
+        sickDurationSeconds += dt;
+        if (sickDurationSeconds >= 86400.0f) {
+            isDead = true;
+        }
+    } else {
+        sickDurationSeconds = 0;
+    }
+
+    // Morte por falta de saúde
     if (health <= 0) {
         isDead = true;
         isSleeping = false;
@@ -145,32 +183,45 @@ void Pet::update(float dt) {
 void Pet::applyOfflineTime(uint32_t elapsedSeconds) {
     if (isDead) return;
     
-    // Limita o tempo offline acumulado a no máximo 3 dias (259200s) para evitar morte injusta
+    // Limita o tempo offline a no máximo 3 dias (259200s)
     uint32_t capSeconds = min(elapsedSeconds, (uint32_t)259200);
     totalTimeSeconds += capSeconds;
     ageDays = totalTimeSeconds / 86400;
 
     if (stage == STAGE_EGG) {
-        if (totalTimeSeconds > 30) stage = STAGE_BABY;
+        if (totalTimeSeconds >= 30) stage = STAGE_BABY;
         return;
     }
 
-    // Simulação proporcional simplificada de offline
-    int hungerLoss = (capSeconds / 60) * 1; // -1 fome por minuto
+    // Simulação proporcional offline
+    int hungerLoss = (capSeconds / 60) * 1; // -1 fome a cada 60s
     int energyLoss = (capSeconds / 120) * 1;
     int happyLoss = (capSeconds / 90) * 1;
+    int affectLoss = (capSeconds / 150) * 1;
 
     hunger = max(STAT_MIN, hunger - hungerLoss);
     energy = max(STAT_MIN, energy - energyLoss);
     happiness = max(STAT_MIN, happiness - happyLoss);
+    affection = max(STAT_MIN, affection - affectLoss);
 
-    // Cocô offline
-    int newPoops = capSeconds / 1800; // 1 coco a cada 30 min
+    // Cocô offline (1 a cada 30 min)
+    int newPoops = capSeconds / 1800;
     poopCount = min(MAX_POOPS, poopCount + newPoops);
 
-    if (hunger == 0 || poopCount >= 2) {
+    if (capSeconds >= 86400) {
+        isDirty = true;
+    }
+
+    if (hunger == 0 || poopCount >= MAX_POOPS || isDirty) {
         isSick = true;
-        health = max(10, (int)(health - (capSeconds / 3600) * 5));
+        health = max(0, (int)(health - (capSeconds / 3600) * 5));
+    }
+
+    if (isSick) {
+        sickDurationSeconds += capSeconds;
+        if (sickDurationSeconds >= 86400.0f) { // 24h doente -> morte
+            isDead = true;
+        }
     }
 
     if (health <= 0) {
@@ -204,6 +255,7 @@ bool Pet::cure() {
     if (isDead || !isSick) return false;
 
     isSick = false;
+    sickDurationSeconds = 0;
     health = min(STAT_MAX, health + 40);
     medicinesGiven++;
     return true;
@@ -212,9 +264,19 @@ bool Pet::cure() {
 bool Pet::cleanPoop() {
     if (poopCount <= 0) return false;
 
-    poopCount = 0;
+    poopCount--; // Limpa apenas UM cocô por vez
     bathsTaken++;
     happiness = min(STAT_MAX, happiness + 5);
+    return true;
+}
+
+bool Pet::giveBath() {
+    if (isDead || isSleeping) return false;
+
+    isDirty = false;
+    lastBathTimeSeconds = totalTimeSeconds;
+    bathsTaken++;
+    happiness = min(STAT_MAX, happiness + 15);
     return true;
 }
 
@@ -226,7 +288,8 @@ bool Pet::toggleSleep() {
 
 bool Pet::petCare() {
     if (isDead || isSleeping) return false;
-    happiness = min(STAT_MAX, happiness + 8);
+    affection = min(100, affection + 20);
+    happiness = min(STAT_MAX, happiness + 10);
     return true;
 }
 
@@ -237,6 +300,9 @@ void Pet::addCoins(int amount) {
 void Pet::triggerPoop() {
     if (poopCount < MAX_POOPS && stage != STAGE_EGG) {
         poopCount++;
+        if (poopCount >= MAX_POOPS) {
+            isSick = true;
+        }
     }
 }
 
@@ -245,6 +311,7 @@ void Pet::checkSickness() {
 
     int sickChance = 0;
     if (poopCount > 0) sickChance += poopCount * 15;
+    if (isDirty) sickChance += 25;
     if (health < 30) sickChance += 25;
     if (hunger < 20) sickChance += 20;
 
@@ -257,11 +324,11 @@ void Pet::checkEvolution() {
     if (isDead) return;
 
     // Critérios de Evolução por Idade/Tempo
-    if (stage == STAGE_BABY && totalTimeSeconds >= 120) { // 2 minutos para Filhote -> Juvenil em modo demo
+    if (stage == STAGE_BABY && totalTimeSeconds >= 120) { // Filhote -> Juvenil (2 min em modo demo)
         stage = STAGE_CHILD;
-    } else if (stage == STAGE_CHILD && totalTimeSeconds >= 300) { // 5 min para Adulto
+    } else if (stage == STAGE_CHILD && totalTimeSeconds >= 300) { // Juvenil -> Adulto (5 min)
         stage = STAGE_ADULT;
-    } else if (stage == STAGE_ADULT && totalTimeSeconds >= 900) { // 15 min para Senior
+    } else if (stage == STAGE_ADULT && totalTimeSeconds >= 900) { // Adulto -> Senior (15 min)
         stage = STAGE_SENIOR;
     }
 }
@@ -272,7 +339,6 @@ const char* Pet::getPersonalityName() const {
         case PERSONALITY_BRAVO:      return "Bravo";
         case PERSONALITY_DORMINHOCO: return "Dorminhoco";
         case PERSONALITY_GULOSO:     return "Guloso";
-        case PERSONALITY_CURIOSO:    return "Curioso";
         case PERSONALITY_CALMO:      return "Calmo";
         default:                     return "Normal";
     }
@@ -293,8 +359,10 @@ const char* Pet::getStatusText() const {
     if (isDead) return "Morto (X_X)";
     if (isSleeping) return "Dormindo (-.-)zZ";
     if (isSick) return "Doente (@_@)";
+    if (isDirty) return "Sujo (S2)";
     if (hunger < 30) return "Com Fome! (Q_Q)";
     if (happiness > 80) return "Muito Feliz! (≧▽≦)";
     if (happiness < 30) return "Triste (T_T)";
     return "Normal (^_^)";
 }
+

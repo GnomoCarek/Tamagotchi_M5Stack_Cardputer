@@ -1,67 +1,160 @@
 #include "Input.h"
 
 InputManager::InputManager() {
-    lastKeyPressTime = 0;
-    lastAction = ACTION_NONE;
+    for (int i = 0; i < ACTION_COUNT; i++) {
+        rawState[i] = false;
+        justPressedState[i] = false;
+        repeatPressedState[i] = false;
+        lastRawState[i] = false;
+        actionPressTime[i] = 0;
+        actionRepeatTime[i] = 0;
+    }
+    typedChar = '\0';
+    lastChar = '\0';
+    charPressTime = 0;
+    charRepeatTime = 0;
 }
 
 void InputManager::update() {
     M5Cardputer.update();
-    lastAction = ACTION_NONE;
-
     uint32_t now = millis();
-    if (now - lastKeyPressTime < 120) { // Debounce / Delay entre repetições
-        return;
+
+    // Reset instant flags for this frame
+    for (int i = 0; i < ACTION_COUNT; i++) {
+        justPressedState[i] = false;
+        repeatPressedState[i] = false;
+        rawState[i] = false;
     }
 
+    const auto& keys = M5Cardputer.Keyboard.keyList();
     auto status = M5Cardputer.Keyboard.keysState();
 
-    // 1. CONFIRMAR / SELECIONAR (ENTER no Teclado, Barra de ESPAÇO, Tecla 'E', ou Botão Físico Frontal G0)
-    if (status.enter || status.space || M5Cardputer.BtnA.wasPressed() || M5Cardputer.BtnA.isPressed() || M5Cardputer.Keyboard.isKeyPressed('e') || M5Cardputer.Keyboard.isKeyPressed('E')) {
-        lastAction = ACTION_SELECT;
-        lastKeyPressTime = now;
-        return;
+    // Botão Físico Frontal G0 (BtnA)
+    if (M5Cardputer.BtnA.isPressed()) {
+        rawState[ACTION_SELECT] = true;
     }
 
-    // 2. VOLTAR / ESC (Tecla DEL/BACKSPACE [canto superior esquerdo], TAB, ou Tecla 'Q')
-    if (status.del || status.tab || M5Cardputer.Keyboard.isKeyPressed('q') || M5Cardputer.Keyboard.isKeyPressed('Q')) {
-        lastAction = ACTION_BACK;
-        lastKeyPressTime = now;
-        return;
+    // Leitura por coordenadas físicas da matriz do Cardputer / Cardputer ADV
+    for (const auto& pos : keys) {
+        int x = pos.x;
+        int y = pos.y;
+
+        // Navegação de Direção:
+        // CIMA: tecla ';' (x=11, y=2) ou 'W' (x=2, y=1)
+        if ((x == 11 && y == 2) || (x == 2 && y == 1)) rawState[ACTION_UP] = true;
+
+        // BAIXO: tecla '.' (x=11, y=3) ou 'S' (x=3, y=2)
+        if ((x == 11 && y == 3) || (x == 3 && y == 2)) rawState[ACTION_DOWN] = true;
+
+        // ESQUERDA: tecla ',' (x=10, y=3) ou 'A' (x=2, y=2)
+        if ((x == 10 && y == 3) || (x == 2 && y == 2)) rawState[ACTION_LEFT] = true;
+
+        // DIREITA: tecla '/' (x=12, y=3) ou 'D' (x=4, y=2)
+        if ((x == 12 && y == 3) || (x == 4 && y == 2)) rawState[ACTION_RIGHT] = true;
+
+        // SELECT / ENTER: tecla Enter (x=13, y=2)
+        if (x == 13 && y == 2) rawState[ACTION_SELECT] = true;
+
+        // ESPAÇO: barra de espaço (x=13, y=3)
+        if (x == 13 && y == 3) rawState[ACTION_SPACE] = true;
+
+        // BACK: Tab (x=0, y=1) ou Q (x=1, y=1)
+        if ((x == 0 && y == 1) || (x == 1 && y == 1)) rawState[ACTION_BACK] = true;
+
+        // DELETE: Backspace (x=13, y=0)
+        if (x == 13 && y == 0) rawState[ACTION_DELETE] = true;
+
+        // Números 1, 2, 3, 4 (linha y=0)
+        if (y == 0 && x == 1) rawState[ACTION_NUM1] = true;
+        if (y == 0 && x == 2) rawState[ACTION_NUM2] = true;
+        if (y == 0 && x == 3) rawState[ACTION_NUM3] = true;
+        if (y == 0 && x == 4) rawState[ACTION_NUM4] = true;
     }
 
-    // 3. NAVEGAÇÃO DE DIREÇÃO (Setas ;, ., ,, / ou Teclas W, A, S, D)
-    if (M5Cardputer.Keyboard.isKeyPressed('w') || M5Cardputer.Keyboard.isKeyPressed(';') || M5Cardputer.Keyboard.isKeyPressed('W')) {
-        lastAction = ACTION_UP;
-        lastKeyPressTime = now;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('s') || M5Cardputer.Keyboard.isKeyPressed('.') || M5Cardputer.Keyboard.isKeyPressed('S')) {
-        lastAction = ACTION_DOWN;
-        lastKeyPressTime = now;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('a') || M5Cardputer.Keyboard.isKeyPressed(',') || M5Cardputer.Keyboard.isKeyPressed('A')) {
-        lastAction = ACTION_LEFT;
-        lastKeyPressTime = now;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('d') || M5Cardputer.Keyboard.isKeyPressed('/') || M5Cardputer.Keyboard.isKeyPressed('D')) {
-        lastAction = ACTION_RIGHT;
-        lastKeyPressTime = now;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('1')) {
-        lastAction = ACTION_NUM1;
-        lastKeyPressTime = now;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('2')) {
-        lastAction = ACTION_NUM2;
-        lastKeyPressTime = now;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('3')) {
-        lastAction = ACTION_NUM3;
-        lastKeyPressTime = now;
-    } else if (M5Cardputer.Keyboard.isKeyPressed('4')) {
-        lastAction = ACTION_NUM4;
-        lastKeyPressTime = now;
+    // Suporte complementar via status de flags do teclado
+    if (status.enter) rawState[ACTION_SELECT] = true;
+    if (status.space) rawState[ACTION_SPACE] = true;
+    if (status.del) rawState[ACTION_DELETE] = true;
+    if (status.tab) rawState[ACTION_BACK] = true;
+
+    // Processamento confiável de debounce e repetição
+    for (int i = 1; i < ACTION_COUNT; i++) {
+        if (rawState[i]) {
+            if (!lastRawState[i]) {
+                // Primeiro toque!
+                justPressedState[i] = true;
+                repeatPressedState[i] = true;
+                actionPressTime[i] = now;
+                actionRepeatTime[i] = now;
+            } else {
+                // Mantido pressionado: repete após 450ms, a cada 120ms
+                if ((now - actionPressTime[i] >= 450) && (now - actionRepeatTime[i] >= 120)) {
+                    repeatPressedState[i] = true;
+                    actionRepeatTime[i] = now;
+                }
+            }
+        }
+        lastRawState[i] = rawState[i];
     }
+
+    // Processamento de caracteres digitados para entrada de texto (Nome do Pet)
+    typedChar = '\0';
+    char currentChar = '\0';
+
+    if (!status.word.empty()) {
+        currentChar = status.word[0];
+    } else if (status.space) {
+        currentChar = ' ';
+    } else if (status.del) {
+        currentChar = '\b';
+    }
+
+    if (currentChar != '\0') {
+        if (currentChar != lastChar) {
+            typedChar = currentChar;
+            charPressTime = now;
+            charRepeatTime = now;
+        } else {
+            if ((now - charPressTime >= 450) && (now - charRepeatTime >= 120)) {
+                typedChar = currentChar;
+                charRepeatTime = now;
+            }
+        }
+    }
+    lastChar = currentChar;
+}
+
+bool InputManager::isJustPressed(KeyAction action) const {
+    if (action <= ACTION_NONE || action >= ACTION_COUNT) return false;
+    return justPressedState[action];
+}
+
+bool InputManager::repeatPressed(KeyAction action) const {
+    if (action <= ACTION_NONE || action >= ACTION_COUNT) return false;
+    return repeatPressedState[action];
+}
+
+bool InputManager::isPressed(KeyAction action) const {
+    return repeatPressed(action);
+}
+
+bool InputManager::isHeld(KeyAction action) const {
+    if (action <= ACTION_NONE || action >= ACTION_COUNT) return false;
+    return rawState[action];
+}
+
+bool InputManager::isReleased(KeyAction action) const {
+    if (action <= ACTION_NONE || action >= ACTION_COUNT) return false;
+    return (!rawState[action] && lastRawState[action]);
 }
 
 KeyAction InputManager::getAction() {
-    return lastAction;
+    for (int i = 1; i < ACTION_COUNT; i++) {
+        if (repeatPressedState[i]) {
+            return (KeyAction)i;
+        }
+    }
+    return ACTION_NONE;
 }
 
-bool InputManager::isPressed(KeyAction action) {
-    return lastAction == action;
-}
+

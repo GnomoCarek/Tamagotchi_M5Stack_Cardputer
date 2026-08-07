@@ -17,6 +17,7 @@ public:
     int energy;
     int health;
     int weight;
+    int affection; // Carinho (0 a 100)
     int ageDays;
     int coins;
 
@@ -24,10 +25,13 @@ public:
     bool isSleeping;
     bool isSick;
     bool isDead;
+    bool isDirty;  // Precisa de banho
     int poopCount;
 
     // Contadores & Estatísticas
     uint32_t totalTimeSeconds;
+    uint32_t lastBathTimeSeconds;
+    float sickDurationSeconds;
     int mealsEaten;
     int bathsTaken;
     int gamesPlayed;
@@ -36,11 +40,16 @@ public:
     int careMistakes;
 
     // Timers internos de decaimento
+    float timeAccumulator;
     float hungerTimer;
     float happinessTimer;
     float energyTimer;
     float healthTimer;
     float poopTimer;
+    float affectionTimer;
+
+    // Configurações
+    int screenTimeoutSec; // 30, 60, 120 ou 0 (desativado)
 
     Pet();
 
@@ -52,9 +61,10 @@ public:
     bool feed(int hungerGain, int weightGain = 1);
     bool play(int happyGain, int energyCost = 5);
     bool cure();
-    bool cleanPoop();
+    bool cleanPoop(); // Limpa 1 cocô
+    bool giveBath();  // Toma banho / limpa sujeira
     bool toggleSleep();
-    bool petCare();
+    bool petCare();   // Fazer carinho
     void addCoins(int amount);
 
     // Evolução e Mudança de Estado
@@ -69,3 +79,4 @@ public:
 };
 
 #endif // PET_H
+
