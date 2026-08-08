@@ -17,13 +17,14 @@ bool StorageManager::hasSaveData() {
     return prefs.isKey("pet_name");
 }
 
-bool StorageManager::saveGame(const Pet& pet, ItemsManager& items, AchievementsManager& achievements, Sound& sound, float timeSpeed, int brightness) {
+bool StorageManager::saveGame(const Pet& pet, ItemsManager& items, AchievementsManager& achievements, Sound& sound, Clock& clock, int brightness) {
     if (!initialized) begin();
 
     prefs.clear(); // Limpa estado antigo para evitar corrupção
 
     // Pet
     prefs.putString("pet_name", pet.name);
+    prefs.putInt("pet_gender", (int)pet.gender);
     prefs.putInt("pet_stage", (int)pet.stage);
     prefs.putInt("pet_var", (int)pet.variant);
     prefs.putInt("pet_pers", (int)pet.personality);
@@ -61,11 +62,13 @@ bool StorageManager::saveGame(const Pet& pet, ItemsManager& items, AchievementsM
     achievements.saveState(ach);
     prefs.putBytes("ach_state", ach, sizeof(ach));
 
-    // Configurações
+    // Configurações & Wi-Fi & Dev Mode
     prefs.putInt("snd_vol", sound.getVolume());
     prefs.putBool("snd_on", sound.isSoundEnabled());
     prefs.putBool("bgm_on", sound.isBgmEnabled());
-    prefs.putFloat("time_spd", timeSpeed);
+    prefs.putBool("dev_mode", clock.getDevMode());
+    prefs.putString("wifi_ssid", clock.getWifiSsid());
+    prefs.putString("wifi_pass", clock.getWifiPass());
     prefs.putInt("scr_bright", brightness);
     prefs.putInt("scr_timeout", pet.screenTimeoutSec);
 
@@ -76,12 +79,13 @@ bool StorageManager::saveGame(const Pet& pet, ItemsManager& items, AchievementsM
     return true;
 }
 
-bool StorageManager::loadGame(Pet& pet, ItemsManager& items, AchievementsManager& achievements, Sound& sound, float& timeSpeed, int& brightness, uint32_t& outOfflineSeconds) {
+bool StorageManager::loadGame(Pet& pet, ItemsManager& items, AchievementsManager& achievements, Sound& sound, Clock& clock, int& brightness, uint32_t& outOfflineSeconds) {
     if (!hasSaveData()) return false;
 
     // Pet
     String pName = prefs.getString("pet_name", "Tama");
     strncpy(pet.name, pName.c_str(), sizeof(pet.name) - 1);
+    pet.gender = (PetGender)prefs.getInt("pet_gender", (int)GENDER_MALE);
     pet.stage = (EvolutionStage)prefs.getInt("pet_stage", (int)STAGE_EGG);
     pet.variant = (PetVariant)prefs.getInt("pet_var", (int)PET_VARIANT_CLASSIC);
     pet.personality = (PersonalityType)prefs.getInt("pet_pers", (int)PERSONALITY_ALEGRE);
@@ -121,11 +125,21 @@ bool StorageManager::loadGame(Pet& pet, ItemsManager& items, AchievementsManager
         achievements.loadState(ach);
     }
 
-    // Configurações
+    // Configurações, Relógio & Wi-Fi
     sound.setVolume(prefs.getInt("snd_vol", 5));
     sound.setSoundEnabled(prefs.getBool("snd_on", true));
     sound.setBgmEnabled(prefs.getBool("bgm_on", false));
-    timeSpeed = prefs.getFloat("time_spd", 1.0f);
+    
+    bool devMode = prefs.getBool("dev_mode", false);
+    clock.setDevMode(devMode);
+
+    String ssid = prefs.getString("wifi_ssid", "");
+    String pass = prefs.getString("wifi_pass", "");
+    clock.setWifiCredentials(ssid.c_str(), pass.c_str());
+    if (ssid.length() > 0) {
+        clock.begin(); // Tenta sincronizar Wi-Fi e NTP
+    }
+
     brightness = prefs.getInt("scr_bright", 128);
     pet.screenTimeoutSec = prefs.getInt("scr_timeout", 60);
 

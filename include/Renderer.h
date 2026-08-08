@@ -23,10 +23,12 @@ public:
 
     void begin();
     
-    void renderGameplay(const Pet& pet, const Clock& clock, Animation& anim, EventsManager& events, MenuManager& menu, const ItemsManager& items, const AchievementsManager& achievements, const Sound& sound, GameState currentState, float timeSpeed, int brightness);
+    void renderGameplay(const Pet& pet, const Clock& clock, Animation& anim, EventsManager& events, MenuManager& menu, const ItemsManager& items, const AchievementsManager& achievements, const Sound& sound, GameState currentState, int brightness);
     
     void renderTitleScreen(Animation& anim);
-    void renderNameEntryScreen(const char* inputName, Animation& anim);
+    void renderGenderEntryScreen(PetGender currentSelection, Animation& anim);
+    void renderNameEntryScreen(const char* inputName, PetGender gender, Animation& anim);
+    void renderHatchingScreen(float progress, Animation& anim);
     void renderEvolutionScreen(const Pet& pet, Animation& anim);
     void renderGameOverScreen(const Pet& pet, Animation& anim);
 

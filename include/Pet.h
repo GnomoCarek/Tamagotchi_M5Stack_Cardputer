@@ -7,6 +7,7 @@
 class Pet {
 public:
     char name[16];
+    PetGender gender;
     EvolutionStage stage;
     PetVariant variant;
     PersonalityType personality;
@@ -53,7 +54,7 @@ public:
 
     Pet();
 
-    void reset(const char* petName, PetVariant petVar = PET_VARIANT_CLASSIC);
+    void reset(const char* petName, PetGender petGender = GENDER_MALE, PetVariant petVar = PET_VARIANT_CLASSIC);
     void update(float dt);
     void applyOfflineTime(uint32_t elapsedSeconds);
 
@@ -74,6 +75,8 @@ public:
 
     // Utilitários
     const char* getPersonalityName() const;
+    const char* getGenderSymbol() const;
+    const char* getGenderName() const;
     const char* getStageName() const;
     const char* getStatusText() const;
 };

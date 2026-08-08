@@ -11,7 +11,7 @@ void Renderer::begin() {
     initialized = true;
 }
 
-void Renderer::renderGameplay(const Pet& pet, const Clock& clock, Animation& anim, EventsManager& events, MenuManager& menu, const ItemsManager& items, const AchievementsManager& achievements, const Sound& sound, GameState currentState, float timeSpeed, int brightness) {
+void Renderer::renderGameplay(const Pet& pet, const Clock& clock, Animation& anim, EventsManager& events, MenuManager& menu, const ItemsManager& items, const AchievementsManager& achievements, const Sound& sound, GameState currentState, int brightness) {
     if (!initialized) begin();
 
     // 1. Fundo Dinâmico com base no Horário do Dia
@@ -22,36 +22,36 @@ void Renderer::renderGameplay(const Pet& pet, const Clock& clock, Animation& ani
     canvas.fillRect(0, 95, SCREEN_WIDTH, 40, 0x39E7); // Chão verde/marrom claro
     canvas.drawFastHLine(0, 95, SCREEN_WIDTH, 0x18C3);
 
-    // Decorações de ambiente (Sol/Nuvens de dia, Pôr do Sol no Crepúsculo, Lua/Estrelas à noite)
+    // Decorações de ambiente baseadas no horário real
     DayPhase phase = clock.getDayPhase();
     if (phase == PHASE_NIGHT) {
-        // Lua
+        // Lua Noturna
         canvas.fillCircle(210, 30, 8, TFT_YELLOW);
-        canvas.fillCircle(207, 28, 7, bgCol); // Recorte para formato de meia-lua
+        canvas.fillCircle(207, 28, 7, bgCol); // Recorte meia-lua
         // Estrelas piscantes
         canvas.drawPixel(20, 25, TFT_WHITE);
         canvas.drawPixel(80, 18, TFT_YELLOW);
         canvas.drawPixel(140, 30, TFT_WHITE);
         canvas.drawPixel(170, 22, TFT_YELLOW);
         canvas.drawPixel(50, 45, TFT_WHITE);
-    } else if (phase == PHASE_DAWN || phase == PHASE_DUSK) {
-        // Sol se pondo / nascendo
+    } else if (phase == PHASE_DUSK) {
+        // Pôr do Sol (Céu alaranjado/rosado)
         canvas.fillCircle(200, 65, 10, TFT_ORANGE);
-        // Nuvens rosadas/alaranjadas
         canvas.fillCircle(40, 30, 8, COLOR_BG_DAWN);
         canvas.fillCircle(48, 28, 10, COLOR_BG_DAWN);
         canvas.fillCircle(56, 30, 8, COLOR_BG_DAWN);
-    } else {
-        // Sol animado
-        canvas.fillCircle(205, 30, 9, TFT_YELLOW);
-        // Nuvens brancas
+    } else if (phase == PHASE_AFTERNOON) {
+        // Tarde radiante
+        canvas.fillCircle(205, 28, 10, TFT_YELLOW);
         canvas.fillCircle(40, 25, 8, TFT_WHITE);
         canvas.fillCircle(48, 23, 10, TFT_WHITE);
         canvas.fillCircle(56, 25, 8, TFT_WHITE);
-
-        canvas.fillCircle(130, 35, 6, TFT_WHITE);
-        canvas.fillCircle(136, 33, 8, TFT_WHITE);
-        canvas.fillCircle(142, 35, 6, TFT_WHITE);
+    } else {
+        // Manhã suave
+        canvas.fillCircle(205, 30, 9, TFT_YELLOW);
+        canvas.fillCircle(40, 25, 8, TFT_WHITE);
+        canvas.fillCircle(48, 23, 10, TFT_WHITE);
+        canvas.fillCircle(56, 25, 8, TFT_WHITE);
     }
 
     // 2. Cabeçalho Superior
@@ -62,9 +62,9 @@ void Renderer::renderGameplay(const Pet& pet, const Clock& clock, Animation& ani
     int batLevel = M5.Power.getBatteryLevel();
     if (batLevel < 0) batLevel = 100;
 
-    // Nome e Bateria no Canto Esquerdo
+    // Nome, Sexo e Bateria no Canto Esquerdo
     char nameBatBuf[32];
-    snprintf(nameBatBuf, sizeof(nameBatBuf), "%s | B:%d%%", pet.name, batLevel);
+    snprintf(nameBatBuf, sizeof(nameBatBuf), "%s(%s) | B:%d%%", pet.name, pet.getGenderSymbol(), batLevel);
     canvas.setTextColor(TFT_WHITE);
     canvas.setTextDatum(TL_DATUM);
     canvas.drawString(nameBatBuf, 4, 2);
@@ -73,7 +73,7 @@ void Renderer::renderGameplay(const Pet& pet, const Clock& clock, Animation& ani
     char timeBuf[16];
     clock.getFormattedTime(timeBuf, sizeof(timeBuf));
     char headerRight[48];
-    snprintf(headerRight, sizeof(headerRight), "D%d | %s | %dC", pet.ageDays + 1, timeBuf, pet.coins);
+    snprintf(headerRight, sizeof(headerRight), "D%d | %s%s | %dC", pet.ageDays + 1, timeBuf, clock.getDevMode() ? "[D]" : "", pet.coins);
     canvas.setTextDatum(TR_DATUM);
     canvas.drawString(headerRight, SCREEN_WIDTH - 4, 2);
 
@@ -104,15 +104,14 @@ void Renderer::renderGameplay(const Pet& pet, const Clock& clock, Animation& ani
 
     // 7. Menu de Ações e Sub-menus
     if (currentState == STATE_MENU || menu.getActiveSubMenu() != SUBMENU_NONE) {
-        menu.draw(canvas, pet, items, achievements, sound, clock, anim, timeSpeed, brightness);
+        menu.draw(canvas, pet, items, achievements, sound, clock, anim, brightness, currentState);
     } else {
-        // Mini Dica no Gameplay livre
+        // Dica no Gameplay livre
         canvas.setTextDatum(BC_DATUM);
         canvas.setTextColor(TFT_LIGHTGRAY);
-        canvas.drawString("[ENTER] Menu | [ESPACO] Carinho", SCREEN_WIDTH / 2, SCREEN_HEIGHT - 2);
+        canvas.drawString("[ENTER] Menu | [1] Carinho | [2] Limpar", SCREEN_WIDTH / 2, SCREEN_HEIGHT - 2);
     }
 
-    // Push Sprite sem cintilação
     canvas.pushSprite(0, 0);
 }
 
@@ -139,7 +138,7 @@ void Renderer::renderTitleScreen(Animation& anim) {
     canvas.pushSprite(0, 0);
 }
 
-void Renderer::renderNameEntryScreen(const char* inputName, Animation& anim) {
+void Renderer::renderGenderEntryScreen(PetGender currentSelection, Animation& anim) {
     if (!initialized) begin();
 
     canvas.fillScreen(COLOR_PANEL_BG);
@@ -148,7 +147,65 @@ void Renderer::renderNameEntryScreen(const char* inputName, Animation& anim) {
     canvas.fillRect(0, 0, SCREEN_WIDTH, 20, COLOR_HEADER_BG);
     canvas.setTextColor(TFT_WHITE);
     canvas.setTextDatum(MC_DATUM);
-    canvas.drawString("ESCOLHA O NOME DO PET", SCREEN_WIDTH / 2, 10);
+    canvas.drawString("ESCOLHA O SEXO DO PET", SCREEN_WIDTH / 2, 10);
+
+    // Duas Caixas de Opções: Macho vs Fêmea
+    int boxW = 90;
+    int boxH = 65;
+
+    // Caixa Macho (Esquerda)
+    int mX = 22;
+    int mY = 32;
+    if (currentSelection == GENDER_MALE) {
+        canvas.fillRoundRect(mX, mY, boxW, boxH, 6, 0x1A1F);
+        canvas.drawRoundRect(mX, mY, boxW, boxH, 6, TFT_CYAN);
+        canvas.drawRoundRect(mX + 1, mY + 1, boxW - 2, boxH - 2, 5, TFT_WHITE);
+        canvas.setTextColor(TFT_YELLOW);
+    } else {
+        canvas.fillRoundRect(mX, mY, boxW, boxH, 6, 0x10A5);
+        canvas.drawRoundRect(mX, mY, boxW, boxH, 6, TFT_DARKGRAY);
+        canvas.setTextColor(TFT_WHITE);
+    }
+    canvas.drawString("Macho", mX + (boxW / 2), mY + 20);
+    canvas.drawString("( M )", mX + (boxW / 2), mY + 44);
+
+    // Caixa Fêmea (Direita)
+    int fX = 128;
+    int fY = 32;
+    if (currentSelection == GENDER_FEMALE) {
+        canvas.fillRoundRect(fX, fY, boxW, boxH, 6, 0x480F);
+        canvas.drawRoundRect(fX, fY, boxW, boxH, 6, 0xF81F);
+        canvas.drawRoundRect(fX + 1, fY + 1, boxW - 2, boxH - 2, 5, TFT_WHITE);
+        canvas.setTextColor(TFT_YELLOW);
+    } else {
+        canvas.fillRoundRect(fX, fY, boxW, boxH, 6, 0x2005);
+        canvas.drawRoundRect(fX, fY, boxW, boxH, 6, TFT_DARKGRAY);
+        canvas.setTextColor(TFT_WHITE);
+    }
+    canvas.drawString("Femea", fX + (boxW / 2), fY + 20);
+    canvas.drawString("( F )", fX + (boxW / 2), fY + 44);
+
+    // Instruções no Rodapé
+    canvas.setTextColor(TFT_LIGHTGRAY);
+    canvas.drawString("[SETAS] Escolher sexo", SCREEN_WIDTH / 2, 106);
+    canvas.setTextColor(TFT_YELLOW);
+    canvas.drawString("[ENTER] Confirmar", SCREEN_WIDTH / 2, 120);
+
+    canvas.pushSprite(0, 0);
+}
+
+void Renderer::renderNameEntryScreen(const char* inputName, PetGender gender, Animation& anim) {
+    if (!initialized) begin();
+
+    canvas.fillScreen(COLOR_PANEL_BG);
+
+    // Cabeçalho
+    canvas.fillRect(0, 0, SCREEN_WIDTH, 20, COLOR_HEADER_BG);
+    canvas.setTextColor(TFT_WHITE);
+    canvas.setTextDatum(MC_DATUM);
+    char headBuf[32];
+    snprintf(headBuf, sizeof(headBuf), "NOME DO PET (%s)", (gender == GENDER_FEMALE) ? "FEMEA" : "MACHO");
+    canvas.drawString(headBuf, SCREEN_WIDTH / 2, 10);
 
     // Ovo no topo
     anim.drawPetSprite(canvas, SCREEN_WIDTH / 2, 42, STAGE_EGG, PET_VARIANT_CLASSIC, "Egg", false, false, false, 100);
@@ -175,6 +232,28 @@ void Renderer::renderNameEntryScreen(const char* inputName, Animation& anim) {
 
     canvas.setTextColor(TFT_YELLOW);
     canvas.drawString("[ENTER] Confirmar | [DEL] Apagar", SCREEN_WIDTH / 2, 118);
+
+    canvas.pushSprite(0, 0);
+}
+
+void Renderer::renderHatchingScreen(float progress, Animation& anim) {
+    if (!initialized) begin();
+
+    canvas.fillScreen(COLOR_BG_DAWN);
+    canvas.setTextColor(TFT_WHITE);
+    canvas.setTextDatum(MC_DATUM);
+    canvas.drawString("NASCIMENTO DO PET!", SCREEN_WIDTH / 2, 20);
+
+    // Ovo Balançando
+    int shakeX = (int)(sin(progress * 25.0f) * 4.0f);
+    anim.drawPetSprite(canvas, (SCREEN_WIDTH / 2) + shakeX, 70, STAGE_EGG, PET_VARIANT_CLASSIC, "Hatching", false, false, false, 100);
+
+    if (progress > 0.5f) {
+        anim.spawnParticle((SCREEN_WIDTH / 2) + shakeX, 60, PARTICLE_STAR, COLOR_COIN);
+    }
+
+    canvas.setTextColor(COLOR_COIN);
+    canvas.drawString("O ovo esta chocando...", SCREEN_WIDTH / 2, 108);
 
     canvas.pushSprite(0, 0);
 }

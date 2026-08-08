@@ -8,7 +8,10 @@ enum ItemType {
     ITEM_FOOD = 0,
     ITEM_MEDICINE,
     ITEM_TOY,
-    ITEM_DECOR
+    ITEM_HYGIENE,
+    ITEM_CLEANING,
+    ITEM_SPECIAL,
+    ITEM_CATEGORY_COUNT
 };
 
 struct Item {
@@ -36,7 +39,7 @@ struct Item {
     }
 };
 
-#define ITEM_CATALOG_SIZE 12
+#define ITEM_CATALOG_SIZE 19
 
 class ItemsManager {
 private:
@@ -49,6 +52,11 @@ public:
     void initCatalog();
     const Item& getItem(int index) const { return catalog[index]; }
     int getCatalogSize() const { return ITEM_CATALOG_SIZE; }
+
+    // Utilitários de Filtragem por Categoria
+    int getCategoryItemCount(ItemType type) const;
+    int getCategoryItemId(ItemType type, int indexInCategory) const;
+    const char* getCategoryName(ItemType type) const;
 
     int getQuantity(int itemId) const;
     bool buyItem(int itemId, int& playerCoins);

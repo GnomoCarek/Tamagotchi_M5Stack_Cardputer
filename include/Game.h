@@ -34,10 +34,10 @@ private:
 
     GameState currentState;
     EvolutionStage lastStage;
-    float timeSpeed;
     int brightness;
     uint32_t lastFrameTime;
     float autoSaveTimer;
+    float hatchingTimer;
 
     char nameInput[16];
     int nameLen;

@@ -138,6 +138,24 @@ void Sound::playSound(SoundType type) {
         case SOUND_TYPING:
             M5.Speaker.tone(1400, 20);
             break;
+
+        case SOUND_CORRECT:
+            M5.Speaker.tone(1800, 50);
+            delay(60);
+            M5.Speaker.tone(2400, 80);
+            break;
+
+        case SOUND_WRONG:
+            M5.Speaker.tone(250, 300);
+            break;
+
+        case SOUND_WIFI_OK:
+            M5.Speaker.tone(1000, 60);
+            delay(70);
+            M5.Speaker.tone(1500, 60);
+            delay(70);
+            M5.Speaker.tone(2200, 150);
+            break;
     }
 }
 

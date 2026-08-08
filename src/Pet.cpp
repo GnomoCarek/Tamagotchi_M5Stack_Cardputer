@@ -1,12 +1,13 @@
 #include "Pet.h"
 
 Pet::Pet() {
-    reset("Tama");
+    reset("Tama", GENDER_MALE);
 }
 
-void Pet::reset(const char* petName, PetVariant petVar) {
+void Pet::reset(const char* petName, PetGender petGender, PetVariant petVar) {
     strncpy(name, petName, sizeof(name) - 1);
     name[sizeof(name) - 1] = '\0';
+    gender = petGender;
     stage = STAGE_EGG;
     variant = petVar;
     personality = (PersonalityType)(random(0, PERSONALITY_COUNT));
@@ -342,6 +343,14 @@ const char* Pet::getPersonalityName() const {
         case PERSONALITY_CALMO:      return "Calmo";
         default:                     return "Normal";
     }
+}
+
+const char* Pet::getGenderSymbol() const {
+    return (gender == GENDER_FEMALE) ? "F" : "M"; // ou ♀ / ♂
+}
+
+const char* Pet::getGenderName() const {
+    return (gender == GENDER_FEMALE) ? "Femea" : "Macho";
 }
 
 const char* Pet::getStageName() const {

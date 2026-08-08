@@ -57,6 +57,12 @@ enum PersonalityType {
     PERSONALITY_COUNT
 };
 
+// Sexo do Pet
+enum PetGender {
+    GENDER_MALE = 0,
+    GENDER_FEMALE
+};
+
 // Estágios de Evolução
 enum EvolutionStage {
     STAGE_EGG = 0,
@@ -78,14 +84,20 @@ enum PetVariant {
 // Estados do Jogo (State Machine)
 enum GameState {
     STATE_TITLE = 0,
+    STATE_INITIAL_MENU,
+    STATE_GENDER_ENTRY,
     STATE_NAME_ENTRY,
+    STATE_HATCHING,
     STATE_GAMEPLAY,
     STATE_MENU,
     STATE_SHOP,
     STATE_INVENTORY,
     STATE_STATS,
     STATE_SETTINGS,
-    STATE_MINIGAME,
+    STATE_WIFI_CONFIG,
+    STATE_MINIGAME_SELECT,
+    STATE_MINIGAME_CATCH,
+    STATE_MINIGAME_REFLEX,
     STATE_EVOLUTION,
     STATE_GAME_OVER,
     STATE_ACHIEVEMENTS
@@ -109,9 +121,14 @@ enum SoundType {
     SOUND_SCREEN_SLEEP,
     SOUND_SCREEN_WAKE,
     SOUND_LOW_BATTERY,
-    SOUND_TYPING
+    SOUND_TYPING,
+    SOUND_CORRECT,
+    SOUND_WRONG,
+    SOUND_WIFI_OK
 };
 
+// Modos de Desenvolvimento
+#define DEV_MODE_DAY_DURATION_SEC 1800.0f // 1 dia virtual = 30 minutos reais (1800 segundos)
 
 // Idiomas (Suporte extensível, padrão PT-BR)
 enum Language {

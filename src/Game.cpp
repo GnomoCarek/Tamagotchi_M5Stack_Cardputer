@@ -3,10 +3,10 @@
 Game::Game() {
     currentState = STATE_TITLE;
     lastStage = STAGE_EGG;
-    timeSpeed = 1.0f;
     brightness = 128;
     lastFrameTime = 0;
     autoSaveTimer = 0;
+    hatchingTimer = 0;
 
     nameInput[0] = '\0';
     nameLen = 0;
@@ -27,9 +27,11 @@ void Game::begin() {
     // Carregar Jogo se Existir Save
     uint32_t offlineSecs = 0;
     if (storage.hasSaveData()) {
-        if (storage.loadGame(pet, items, achievements, sound, timeSpeed, brightness, offlineSecs)) {
+        if (storage.loadGame(pet, items, achievements, sound, clock, brightness, offlineSecs)) {
             M5Cardputer.Display.setBrightness(brightness);
             lastStage = pet.stage;
+
+            currentState = STATE_INITIAL_MENU; // Apresenta menu Continuar/Novo Jogo/Config
 
             if (offlineSecs > 0) {
                 pet.applyOfflineTime(offlineSecs);
@@ -39,8 +41,9 @@ void Game::begin() {
             }
         }
     } else {
-        pet.reset("TamaCard");
+        pet.reset("TamaCard", GENDER_MALE);
         lastStage = pet.stage;
+        currentState = STATE_TITLE;
     }
 
     sound.playSound(SOUND_BOOT);
@@ -67,7 +70,7 @@ void Game::update() {
             isScreenOff = false;
             M5Cardputer.Display.setBrightness(brightness);
             sound.playSound(SOUND_SCREEN_WAKE);
-            return; // Descarta o toque inicial que religou a tela
+            return;
         }
     } else {
         screenIdleTimer += dt;
@@ -78,26 +81,25 @@ void Game::update() {
         }
     }
 
-    // Se a tela estiver desligada, mantém a simulação sem renderizar
     if (isScreenOff) {
         pet.update(dt);
-        clock.setTimeSpeed(timeSpeed);
         clock.update(dt);
         sound.update(dt);
         return;
     }
 
-    // Atualizar Som & Relógio
+    // Atualizar Som & Relógio & Animações
     sound.update(dt);
-    clock.setTimeSpeed(timeSpeed);
     clock.update(dt);
     animation.update(dt);
 
     // Auto-Save periódico a cada 30s
-    autoSaveTimer += dt;
-    if (autoSaveTimer >= 30.0f) {
-        autoSaveTimer = 0;
-        saveGame();
+    if (currentState == STATE_GAMEPLAY || currentState == STATE_MENU) {
+        autoSaveTimer += dt;
+        if (autoSaveTimer >= 30.0f) {
+            autoSaveTimer = 0;
+            saveGame();
+        }
     }
 
     // Máquina de Estados do Jogo
@@ -107,17 +109,28 @@ void Game::update() {
             if (action == ACTION_SELECT) {
                 sound.playSound(SOUND_CLICK);
                 if (storage.hasSaveData()) {
-                    currentState = STATE_GAMEPLAY;
+                    currentState = STATE_INITIAL_MENU;
                 } else {
-                    nameInput[0] = '\0';
-                    nameLen = 0;
-                    currentState = STATE_NAME_ENTRY;
+                    currentState = STATE_GENDER_ENTRY;
                 }
             }
             break;
 
+        case STATE_INITIAL_MENU: {
+            bool dummySave = false, dummyReset = false;
+            menu.update(action, typedC, pet, items, achievements, sound, clock, brightness, dummySave, dummyReset, currentState);
+            menu.draw(renderer.getCanvas(), pet, items, achievements, sound, clock, animation, brightness, currentState);
+            break;
+        }
+
+        case STATE_GENDER_ENTRY: {
+            bool dummySave = false, dummyReset = false;
+            menu.update(action, typedC, pet, items, achievements, sound, clock, brightness, dummySave, dummyReset, currentState);
+            renderer.renderGenderEntryScreen(menu.getSelectedGender(), animation);
+            break;
+        }
+
         case STATE_NAME_ENTRY:
-            // Digitação do Nome
             if (typedC == '\b' || action == ACTION_DELETE) {
                 if (nameLen > 0) {
                     nameLen--;
@@ -131,18 +144,68 @@ void Game::update() {
                 sound.playSound(SOUND_TYPING);
             }
 
-            renderer.renderNameEntryScreen(nameInput, animation);
+            renderer.renderNameEntryScreen(nameInput, menu.getSelectedGender(), animation);
 
             if (action == ACTION_SELECT) {
                 if (nameLen >= 3) {
-                    pet.reset(nameInput);
+                    pet.reset(nameInput, menu.getSelectedGender());
                     lastStage = pet.stage;
                     saveGame();
-                    currentState = STATE_GAMEPLAY;
+                    hatchingTimer = 0;
+                    currentState = STATE_HATCHING;
                     sound.playSound(SOUND_EGG_HATCH);
                 } else {
                     events.showMessage("Nome deve ter 3-12 letras!", 2.5f);
                 }
+            }
+            break;
+
+        case STATE_HATCHING:
+            hatchingTimer += dt;
+            renderer.renderHatchingScreen(hatchingTimer, animation);
+
+            if (hatchingTimer >= 3.5f || action == ACTION_SELECT) {
+                currentState = STATE_GAMEPLAY;
+                sound.playSound(SOUND_EGG_HATCH);
+            }
+            break;
+
+        case STATE_MINIGAME_SELECT: {
+            bool dummySave = false, dummyReset = false;
+            menu.update(action, typedC, pet, items, achievements, sound, clock, brightness, dummySave, dummyReset, currentState);
+            menu.draw(renderer.getCanvas(), pet, items, achievements, sound, clock, animation, brightness, currentState);
+            break;
+        }
+
+        case STATE_MINIGAME_CATCH:
+            if (minigame.getType() != MINIGAME_CATCH_STARS) {
+                minigame.reset(MINIGAME_CATCH_STARS);
+            }
+            minigame.update(dt, action, typedC, sound, animation);
+            minigame.draw(renderer.getCanvas(), animation);
+            renderer.getCanvas().pushSprite(0, 0);
+
+            if (minigame.isGameOver() && action == ACTION_SELECT) {
+                pet.addCoins(minigame.getCoinsEarned());
+                pet.play(15, 10);
+                currentState = STATE_GAMEPLAY;
+                sound.playSound(SOUND_CLICK);
+            }
+            break;
+
+        case STATE_MINIGAME_REFLEX:
+            if (minigame.getType() != MINIGAME_REFLEX_TEST) {
+                minigame.reset(MINIGAME_REFLEX_TEST);
+            }
+            minigame.update(dt, action, typedC, sound, animation);
+            minigame.draw(renderer.getCanvas(), animation);
+            renderer.getCanvas().pushSprite(0, 0);
+
+            if (minigame.isGameOver() && action == ACTION_SELECT) {
+                pet.addCoins(minigame.getCoinsEarned());
+                pet.play(25, 10);
+                currentState = STATE_GAMEPLAY;
+                sound.playSound(SOUND_CLICK);
             }
             break;
 
@@ -152,7 +215,6 @@ void Game::update() {
             events.update(dt, pet, sound);
             achievements.checkProgress(pet, minigame.getScore());
 
-            // Detecção de Evolução
             if (pet.stage != lastStage) {
                 lastStage = pet.stage;
                 currentState = STATE_EVOLUTION;
@@ -161,32 +223,30 @@ void Game::update() {
                 return;
             }
 
-            // Morte
             if (pet.isDead) {
                 currentState = STATE_GAME_OVER;
                 sound.playSound(SOUND_DEATH);
                 return;
             }
 
-            // Tratar Controles em Gameplay Livre
             if (currentState == STATE_GAMEPLAY) {
                 if (action == ACTION_SELECT) {
                     currentState = STATE_MENU;
                     sound.playSound(SOUND_CLICK);
-                } else if (action == ACTION_NUM1 || action == ACTION_SPACE) { // Atalho Carinho
+                } else if (action == ACTION_NUM1 || action == ACTION_SPACE) {
                     if (pet.petCare()) {
                         sound.playSound(SOUND_PLAY);
                         animation.spawnParticle(SCREEN_WIDTH / 2, 60, PARTICLE_HEART, COLOR_HEALTH);
                     }
-                } else if (action == ACTION_NUM2) { // Atalho Limpar
+                } else if (action == ACTION_NUM2) {
                     if (pet.cleanPoop()) sound.playSound(SOUND_CLEAN);
-                } else if (action == ACTION_NUM3) { // Atalho Banho
+                } else if (action == ACTION_NUM3) {
                     if (pet.giveBath()) sound.playSound(SOUND_CLEAN);
                 }
             } else if (currentState == STATE_MENU) {
                 bool requestSave = false;
                 bool requestReset = false;
-                menu.update(action, pet, items, achievements, sound, timeSpeed, brightness, requestSave, requestReset, currentState);
+                menu.update(action, typedC, pet, items, achievements, sound, clock, brightness, requestSave, requestReset, currentState);
 
                 if (requestSave) {
                     saveGame();
@@ -201,23 +261,9 @@ void Game::update() {
                 }
             }
 
-            renderer.renderGameplay(pet, clock, animation, events, menu, items, achievements, sound, currentState, timeSpeed, brightness);
+            renderer.renderGameplay(pet, clock, animation, events, menu, items, achievements, sound, currentState, brightness);
             break;
         }
-
-        case STATE_MINIGAME:
-            minigame.update(dt, action, sound, animation);
-            minigame.draw(renderer.getCanvas(), animation);
-            renderer.getCanvas().pushSprite(0, 0);
-
-            if (minigame.isGameOver() && action == ACTION_SELECT) {
-                pet.addCoins(minigame.getCoinsEarned());
-                pet.play(15, 10); // Minijogo aumenta felicidade e gasta energia
-                minigame.reset();
-                currentState = STATE_GAMEPLAY;
-                sound.playSound(SOUND_CLICK);
-            }
-            break;
 
         case STATE_EVOLUTION:
             renderer.renderEvolutionScreen(pet, animation);
@@ -233,7 +279,7 @@ void Game::update() {
                 resetGame();
                 nameInput[0] = '\0';
                 nameLen = 0;
-                currentState = STATE_NAME_ENTRY;
+                currentState = STATE_GENDER_ENTRY;
                 sound.playSound(SOUND_CLICK);
             }
             break;
@@ -245,15 +291,15 @@ void Game::update() {
 }
 
 void Game::saveGame() {
-    storage.saveGame(pet, items, achievements, sound, timeSpeed, brightness);
+    storage.saveGame(pet, items, achievements, sound, clock, brightness);
 }
 
 void Game::resetGame() {
     storage.resetSave();
-    pet.reset("TamaCard");
+    pet.reset("TamaCard", GENDER_MALE);
     items = ItemsManager();
     achievements = AchievementsManager();
-    minigame.reset();
+    minigame.reset(MINIGAME_CATCH_STARS);
     lastStage = pet.stage;
 }
 
